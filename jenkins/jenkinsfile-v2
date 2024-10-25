@@ -1,0 +1,46 @@
+pipeline{
+  agent any
+  environment{
+        SONAR_HOME= tool "Sonar"
+  }
+  stages {
+    stage("Hello") {
+        steps {
+            echo "hello-sonarqube"
+        }
+    }
+    
+
+    stage("code") {
+        steps {
+            echo "code cloning suucess"
+            git url: "https://github.com/rahulkr1012/django-notes-app.git", branch:"master"
+        }
+    }
+    stage("SonarQube Quality Analysis"){
+        steps{
+            withSonarQubeEnv("Sonar"){
+                sh "$SONAR_HOME/bin/sonar-scanner -Dsonar.projectName=django-notes-app1 -Dsonar.projectKey=django-notes-app1"
+            }
+        }
+    }
+    stage("OWASP Dependency Check"){
+            steps{
+                dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'OWASP'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+    }
+  
+    stage("Sonar Quality Gate Scan"){
+            steps{
+                timeout(time: 2, unit: "MINUTES"){
+                    waitForQualityGate abortPipeline: false
+            }   }
+    }
+    stage("Trivy File System Scan"){
+            steps{
+                sh "trivy fs --format  table -o trivy-fs-report.html ."
+            }
+    }
+  }
+}
